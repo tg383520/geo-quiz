@@ -1,0 +1,235 @@
+:root {
+    --primary-color: #007bff;
+    --secondary-color: #6c757d;
+    --background-color: #f8f9fa;
+    --surface-color: #ffffff;
+    --text-color: #212529;
+    --correct-color: #28a745;
+    --incorrect-color: #dc3545;
+    --border-radius: 12px;
+    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+#app-container {
+    width: 100%;
+    max-width: 700px; /* 지도 표시를 위해 너비 증가 */
+    text-align: center;
+}
+
+header h1 {
+    color: var(--primary-color);
+    font-size: 2.5em;
+    margin-bottom: 30px;
+}
+
+main#main-content {
+    background-color: var(--surface-color);
+    padding: 30px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* --- 화면별 스타일 --- */
+#start-screen h2 {
+    margin-top: 0;
+    margin-bottom: 25px;
+}
+
+.quiz-selection {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.quiz-btn, .option-btn, #next-question-btn, .result-buttons button {
+    padding: 15px 20px;
+    font-size: 1.1em;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background-color: var(--surface-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quiz-btn:hover {
+    background-color: #f1f3f5;
+    transform: translateY(-2px);
+}
+
+/* --- 퀴즈 진행 화면 --- */
+#quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+#progress-bar {
+    width: 100%;
+    height: 10px;
+    background-color: #e9ecef;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    overflow: hidden;
+}
+
+#progress-bar-inner {
+    height: 100%;
+    width: 0%;
+    background-color: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+#question-area {
+    margin: 25px 0;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column; /* 내부 요소들을 세로로 정렬 */
+    justify-content: center;
+    align-items: center;
+}
+
+#flag-image {
+    max-width: 200px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+#country-name-question {
+    font-size: 2em;
+    font-weight: bold;
+}
+
+#instruction-text {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--secondary-color);
+    margin-top: 15px;
+}
+
+.options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.option-btn.correct {
+    background-color: var(--correct-color);
+    color: white;
+    border-color: var(--correct-color);
+}
+
+.option-btn.incorrect {
+    background-color: var(--incorrect-color);
+    color: white;
+    border-color: var(--incorrect-color);
+}
+
+.option-btn.disabled {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+#next-question-btn {
+    width: 100%;
+    margin-top: 25px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+}
+
+#next-question-btn:hover {
+    opacity: 0.9;
+}
+
+/* --- 지도 스타일 --- */
+#map-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+#world-map-svg {
+    width: 100%;
+    height: auto;
+    cursor: pointer;
+}
+
+/* --- 결과 화면 --- */
+#results-screen h2 {
+    margin-top: 0;
+}
+
+#final-score {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: var(--primary-color);
+    margin: 15px 0;
+}
+
+#result-message {
+    font-size: 1.2em;
+}
+
+.result-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 25px;
+}
+
+#play-again-same-quiz-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+}
+
+#back-to-main-btn {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+}
+
+footer {
+    margin-top: 30px;
+    color: var(--secondary-color);
+}
+
+/* --- 반응형 디자인 --- */
+@media (max-width: 640px) {
+    body {
+        padding: 10px;
+    }
+
+    header h1 {
+        font-size: 2em;
+    }
+
+    main#main-content {
+        padding: 20px;
+    }
+
+    .quiz-selection,
+    .options-grid,
+    .result-buttons {
+        grid-template-columns: 1fr;
+    }
+}

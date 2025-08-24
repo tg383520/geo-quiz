@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지리 퀴즈 어드벤처</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="app-container">
+        <header>
+            <h1>지리 퀴즈 어드벤처</h1>
+        </header>
+
+        <main id="main-content">
+            <!-- 시작 화면 -->
+            <section id="start-screen">
+                <h2>퀴즈를 선택하세요</h2>
+                <div class="quiz-selection">
+                    <button id="start-flag-quiz" class="quiz-btn">🌍 국기 보고 이름 맞히기</button>
+                    <button id="start-capital-quiz" class="quiz-btn">🏛️ 수도 이름 맞히기</button>
+                    <button id="start-map-find-quiz" class="quiz-btn">🗺️ 이름 보고 지도에서 찾기</button>
+                    <button id="start-map-guess-quiz" class="quiz-btn">📍 지도 보고 이름 맞히기</button>
+                </div>
+            </section>
+
+            <!-- 퀴즈 화면 -->
+            <section id="quiz-screen" class="hidden">
+                <div id="progress-bar">
+                    <div id="progress-bar-inner"></div>
+                </div>
+                <div id="quiz-header">
+                    <span id="question-counter"></span>
+                    <span id="score">점수: 0</span>
+                </div>
+                <div id="question-area">
+                    <!-- 퀴즈 내용이 여기에 동적으로 삽입됩니다 -->
+                </div>
+                <div id="options-area" class="options-grid">
+                    <!-- 객관식 선택지가 여기에 동적으로 삽입됩니다 -->
+                </div>
+                <p id="instruction-text" class="hidden"></p>
+                <button id="next-question-btn" class="hidden">다음 문제</button>
+            </section>
+
+            <!-- 결과 화면 -->
+            <section id="results-screen" class="hidden">
+                <h2>퀴즈 결과</h2>
+                <p id="final-score"></p>
+                <p id="result-message"></p>
+                <div class="result-buttons">
+                    <button id="play-again-same-quiz-btn">다시하기</button>
+                    <button id="back-to-main-btn">메인으로</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>SVG 지도 퀴즈 게임</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

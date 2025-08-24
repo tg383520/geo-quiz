@@ -1,0 +1,49 @@
+<svg version="1.1" id="world-map" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 800 400" xml:space="preserve">
+    <!-- 이 SVG 파일은 교육용으로 단순화되었습니다. -->
+    <style type="text/css">
+        .country {
+            fill: #cccccc;
+            stroke: #ffffff;
+            stroke-width: 0.5;
+            transition: fill 0.3s;
+        }
+        .country:hover {
+            fill: #a9a9a9;
+        }
+        .highlight {
+            fill: #007bff;
+        }
+    </style>
+    <g>
+        <!-- North America -->
+        <path id="US" class="country" d="M150,100 h50 v50 h-50 z" data-name="미국"></path>
+        <path id="CA" class="country" d="M150,50 h50 v50 h-50 z" data-name="캐나다"></path>
+        <path id="MX" class="country" d="M150,150 h50 v20 h-50 z" data-name="멕시코"></path>
+
+        <!-- South America -->
+        <path id="BR" class="country" d="M250,200 h50 v50 h-50 z" data-name="브라질"></path>
+        <path id="AR" class="country" d="M250,250 h40 v50 h-40 z" data-name="아르헨티나"></path>
+
+        <!-- Europe -->
+        <path id="GB" class="country" d="M380,80 h20 v20 h-20 z" data-name="영국"></path>
+        <path id="FR" class="country" d="M400,90 h20 v25 h-20 z" data-name="프랑스"></path>
+        <path id="DE" class="country" d="M420,85 h25 v25 h-25 z" data-name="독일"></path>
+        <path id="ES" class="country" d="M380,110 h20 v20 h-20 z" data-name="스페인"></path>
+        <path id="IT" class="country" d="M420,115 h15 v25 h-15 z" data-name="이탈리아"></path>
+
+        <!-- Africa -->
+        <path id="EG" class="country" d="M450,180 h30 v30 h-30 z" data-name="이집트"></path>
+        <path id="ZA" class="country" d="M460,280 h30 v30 h-30 z" data-name="남아프리카 공화국"></path>
+        <path id="NG" class="country" d="M420,210 h30 v30 h-30 z" data-name="나이지리아"></path>
+
+        <!-- Asia -->
+        <path id="RU" class="country" d="M500,50 h150 v80 h-150 z" data-name="러시아"></path>
+        <path id="CN" class="country" d="M550,130 h100 v70 h-100 z" data-name="중국"></path>
+        <path id="IN" class="country" d="M580,200 h50 v40 h-50 z" data-name="인도"></path>
+        <path id="JP" class="country" d="M700,140 h30 v40 h-30 z" data-name="일본"></path>
+        <path id="KR" class="country" d="M670,130 h20 v20 h-20 z" data-name="대한민국"></path>
+
+        <!-- Oceania -->
+        <path id="AU" class="country" d="M650,280 h80 v60 h-80 z" data-name="호주"></path>
+    </g>
+</svg>
