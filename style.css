@@ -26,6 +26,11 @@ body {
     width: 100%;
     max-width: 700px; /* 지도 표시를 위해 너비 증가 */
     text-align: center;
+    transition: max-width 0.5s ease-in-out; /* 너비 변경 시 부드러운 효과 추가 */
+}
+
+#app-container.map-quiz-mode {
+    max-width: 95vw; /* 맵 퀴즈 시 너비를 화면의 95%로 확장 */
 }
 
 header h1 {
@@ -82,12 +87,30 @@ main#main-content {
     font-weight: bold;
 }
 
-#back-to-main-during-quiz-btn {
-    background-color: var(--secondary-color);
-    color: white;
-    font-size: 0.9em;
-    padding: 8px 12px;
+.quiz-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#back-to-main-during-quiz-btn, #zoom-out-btn {
+    background: none;
     border: none;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+#back-to-main-during-quiz-btn:hover, #zoom-out-btn:hover {
+    background-color: #e9ecef;
+}
+
+#back-to-main-during-quiz-btn svg {
+    color: var(--secondary-color);
 }
 
 #progress-bar {
@@ -171,14 +194,27 @@ main#main-content {
 /* --- 지도 스타일 --- */
 #map-container {
     width: 100%;
-    max-width: 600px;
     margin: 0 auto;
+    overflow: hidden; /* 컨테이너를 벗어나는 부분 숨기기 */
 }
 
 #world-map-svg {
     width: 100%;
     height: auto;
     cursor: pointer;
+}
+
+#world-map-svg .country.highlight {
+    fill: var(--primary-color) !important; /* 선택된 국가 색상 강조 */
+    stroke: #fff !important;
+    stroke-width: 1px !important;
+}
+
+#world-map-svg .pointer-arrow {
+    fill: var(--incorrect-color);
+    stroke: white;
+    stroke-width: 1.5px;
+    pointer-events: none; /* 화살표는 클릭되지 않도록 설정 */
 }
 
 /* --- 결과 화면 --- */

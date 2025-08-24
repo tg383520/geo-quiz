@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM 요소 캐싱 ---
+    const appContainer = document.getElementById('app-container');
     const startScreen = document.getElementById('start-screen');
     const quizScreen = document.getElementById('quiz-screen');
     const resultsScreen = document.getElementById('results-screen');
@@ -18,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const instructionText = document.getElementById('instruction-text');
     const nextQuestionBtn = document.getElementById('next-question-btn');
     const backToMainDuringQuizBtn = document.getElementById('back-to-main-during-quiz-btn');
+    const zoomOutBtn = document.getElementById('zoom-out-btn');
 
     const finalScoreDisplay = document.getElementById('final-score');
     const resultMessageDisplay = document.getElementById('result-message');
@@ -30,9 +32,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentQuizData = [];
     let currentQuestionIndex = 0;
     let score = 0;
-    let quizType = ''; // 'flag', 'capital', 'map-find', 'map-guess'
+    let quizType = '';
     const TOTAL_QUESTIONS = 10;
     let worldMapSVG = null;
+    let originalViewBox = null;
+    
+    let isRightMouseDown = false;
+    let isPanning = false;
+    let lastMousePos = { x: 0, y: 0 };
+    let currentZoomAnimation = null;
 
     // --- 유틸리티 함수 ---
     const getCountryName = (country) => (country.translations && country.translations.kor ? country.translations.kor.common : country.name.common) || country.name.common;
@@ -49,15 +57,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!mapResponse.ok) throw new Error(`지도 데이터 로드 실패: ${mapResponse.status}`);
 
             allCountries = await countriesResponse.json();
-            allCountries = allCountries.filter(country => country.capital && country.capital.length > 0 && country.cca2 && country.translations.kor);
+            allCountries = allCountries.filter(c => c.capital && c.capital.length > 0 && c.cca2 && c.cca3 && c.translations.kor);
 
             const mapText = await mapResponse.text();
             const parser = new DOMParser();
             worldMapSVG = parser.parseFromString(mapText, 'image/svg+xml').documentElement;
+            originalViewBox = worldMapSVG.getAttribute('viewBox');
 
-            // [수정] class 대신 id가 있는 모든 path를 국가로 인식
             const mapCountryIds = Array.from(worldMapSVG.querySelectorAll('path[id]')).map(path => path.id.toLowerCase());
-            // [수정] API의 국가 코드도 소문자로 바꿔서 비교
+            // [수정] 2글자(cca2) 코드로 다시 매칭합니다.
             mapQuizCountries = allCountries.filter(country => mapCountryIds.includes(country.cca2.toLowerCase()));
 
             enableQuizButtons();
@@ -77,7 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
         currentQuestionIndex = 0;
         score = 0;
         updateScoreDisplay();
+        
+        appContainer.classList.remove('map-quiz-mode');
+
         prepareQuizData();
+        if (!currentQuizData) return;
 
         startScreen.classList.add('hidden');
         resultsScreen.classList.add('hidden');
@@ -90,9 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function prepareQuizData() {
         const sourceCountries = quizType.startsWith('map') ? mapQuizCountries : allCountries;
         if (sourceCountries.length < TOTAL_QUESTIONS) {
-            alert('지도에 표시된 국가의 수가 적어 퀴즈를 시작할 수 없습니다. (10개 이상 필요)');
-            quizScreen.classList.add('hidden');
-            startScreen.classList.remove('hidden');
+            alert(`지도 퀴즈를 위한 국가 데이터가 부족합니다. (지도에 포함된 국가 ${TOTAL_QUESTIONS}개 이상 필요)`);
+            currentQuizData = null;
+            goBackToMainMenu();
             return;
         }
         sourceCountries.sort(() => 0.5 - Math.random());
@@ -129,17 +141,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayMapFindQuestion(question) {
+        appContainer.classList.add('map-quiz-mode');
         questionArea.innerHTML = `<p id="country-name-question">'${getCountryName(question)}'을(를) 지도에서 찾아보세요.</p>`;
-        instructionText.textContent = '지도에서 해당하는 국가를 클릭하세요.';
+        instructionText.textContent = '우클릭 + 휠로 확대/축소, 우클릭 + 드래그로 이동하세요.';
         instructionText.classList.remove('hidden');
         renderMap(handleMapClick, question);
     }
 
     function displayMapGuessQuestion(question) {
+        appContainer.classList.add('map-quiz-mode');
         questionArea.innerHTML = '';
         instructionText.textContent = '지도에 표시된 국가는 어디일까요?';
         instructionText.classList.remove('hidden');
-        renderMap(() => {}, question, true);
+        renderMap(() => {}, question, { highlight: true, arrow: true });
         generateMultipleChoiceOptions(question, 'name');
     }
 
@@ -169,19 +183,151 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function renderMap(clickCallback, question, highlight = false) {
+    function renderMap(clickCallback, question, effects = {}) {
         const mapContainer = document.createElement('div');
         mapContainer.id = 'map-container';
         const clonedMap = worldMapSVG.cloneNode(true);
+        
+        clonedMap.removeAttribute('width');
+        clonedMap.removeAttribute('height');
+        clonedMap.id = 'world-map-svg';
+        clonedMap.setAttribute('viewBox', originalViewBox);
+
         mapContainer.appendChild(clonedMap);
         questionArea.appendChild(mapContainer);
 
+        mapContainer.addEventListener('contextmenu', e => e.preventDefault());
+        mapContainer.addEventListener('mousedown', handleMouseDown);
+        mapContainer.addEventListener('wheel', handleWheelZoom, { passive: false });
+
+        // [수정] 2글자 코드로 경로 검색
+        const countryPath = clonedMap.querySelector(`path[id='${question.cca2.toLowerCase()}']`);
+
         clonedMap.querySelectorAll('path[id]').forEach(path => {
-            path.addEventListener('click', (e) => clickCallback(e, question));
-            if (highlight && path.id.toLowerCase() === question.cca2.toLowerCase()) {
-                path.classList.add('highlight');
-            }
+            path.classList.add('country');
+            path.addEventListener('click', (e) => {
+                if (!isPanning) { 
+                    clickCallback(e, question);
+                }
+            });
         });
+
+        if (effects.highlight && countryPath) {
+            countryPath.classList.add('highlight');
+        }
+        if (effects.arrow && countryPath) {
+            addPointerArrow(clonedMap, countryPath.getBBox());
+        }
+    }
+
+    function addPointerArrow(svg, bbox) {
+        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const arrowSize = Math.min(bbox.width, bbox.height, 20) + 15;
+        const targetX = bbox.x + bbox.width / 2;
+        const targetY = bbox.y - arrowSize / 2;
+        const pathData = `M ${targetX} ${targetY} l -${arrowSize/2} -${arrowSize} h ${arrowSize} z`;
+        arrow.setAttribute('d', pathData);
+        arrow.classList.add('pointer-arrow');
+        svg.appendChild(arrow);
+    }
+
+    // --- 지도 상호작용 핸들러 (줌, 패닝) ---
+    function handleMouseDown(event) {
+        if (event.button !== 2) return;
+        isRightMouseDown = true;
+        isPanning = false;
+        lastMousePos = { x: event.clientX, y: event.clientY };
+
+        const onMouseMove = (e) => {
+            if (!isPanning && (Math.abs(e.clientX - lastMousePos.x) > 2 || Math.abs(e.clientY - lastMousePos.y) > 2)) {
+                isPanning = true;
+            }
+            if (isPanning) {
+                handlePan(e);
+            }
+        };
+
+        const onMouseUp = () => {
+            setTimeout(() => { isPanning = false; }, 0);
+            isRightMouseDown = false;
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+    }
+
+    function handlePan(event) {
+        if (!isRightMouseDown) return;
+        const svg = questionArea.querySelector('#world-map-svg');
+        if (!svg) return;
+
+        const dx = event.clientX - lastMousePos.x;
+        const dy = event.clientY - lastMousePos.y;
+
+        const svgRect = svg.getBoundingClientRect();
+        const viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
+        
+        const scaleX = viewBox[2] / svgRect.width;
+        const scaleY = viewBox[3] / svgRect.height;
+
+        viewBox[0] -= dx * scaleX;
+        viewBox[1] -= dy * scaleY;
+
+        svg.setAttribute('viewBox', viewBox.join(' '));
+        lastMousePos = { x: event.clientX, y: event.clientY };
+    }
+
+    function handleWheelZoom(event) {
+        if (!isRightMouseDown) return;
+        event.preventDefault();
+
+        const svg = event.currentTarget.querySelector('#world-map-svg');
+        if (!svg) return;
+
+        const viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
+        const [x, y, width, height] = viewBox;
+        const zoomFactor = 1.2;
+
+        let newWidth, newHeight;
+        if (event.deltaY < 0) {
+            newWidth = width / zoomFactor;
+            newHeight = height / zoomFactor;
+            zoomOutBtn.classList.remove('hidden');
+        } else {
+            newWidth = width * zoomFactor;
+            newHeight = height * zoomFactor;
+        }
+        
+        const newX = x + (width - newWidth) / 2;
+        const newY = y + (height - newHeight) / 2;
+
+        smoothlySetViewBox(svg, [newX, newY, newWidth, newHeight]);
+    }
+
+    function smoothlySetViewBox(svg, targetValues) {
+        if (currentZoomAnimation) cancelAnimationFrame(currentZoomAnimation);
+
+        const startValues = svg.getAttribute('viewBox').split(' ').map(Number);
+        const duration = 250;
+        let startTime = null;
+
+        function animate(currentTime) {
+            if (!startTime) startTime = currentTime;
+            const elapsedTime = currentTime - startTime;
+            const progress = Math.min(elapsedTime / duration, 1);
+
+            const interpolatedValues = startValues.map((start, index) => start + (targetValues[index] - start) * progress);
+            svg.setAttribute('viewBox', interpolatedValues.join(' '));
+
+            if (progress < 1) {
+                currentZoomAnimation = requestAnimationFrame(animate);
+            } else {
+                currentZoomAnimation = null;
+            }
+        }
+        currentZoomAnimation = requestAnimationFrame(animate);
     }
 
     // --- 정답 처리 ---
@@ -193,6 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleMapClick(event, question) {
         const clickedCountryId = event.target.id;
+        // [수정] 2글자 코드로 비교
         const isCorrect = clickedCountryId.toLowerCase() === question.cca2.toLowerCase();
         showFeedback(isCorrect, event.target, getCountryName(question));
     }
@@ -211,10 +358,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             if (clickedElement.tagName === 'path') {
                 clickedElement.style.fill = 'var(--incorrect-color)';
+                // [수정] 2글자 코드로 정답 경로 검색
                 const correctCountryCode = currentQuizData[currentQuestionIndex].cca2.toLowerCase();
                 const correctPath = questionArea.querySelector(`path[id='${correctCountryCode}']`);
                 if(correctPath) correctPath.classList.add('highlight');
-                instructionText.textContent = `정답은 ${correctId} 입니다.`;
             } else {
                 clickedElement.classList.add('incorrect');
                 optionsArea.querySelectorAll('.option-btn').forEach(btn => {
@@ -236,6 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showResults() {
         quizScreen.classList.add('hidden');
         resultsScreen.classList.remove('hidden');
+        appContainer.classList.remove('map-quiz-mode');
         finalScoreDisplay.textContent = `${score} / ${TOTAL_QUESTIONS}`;
         
         const percentage = (score / TOTAL_QUESTIONS) * 100;
@@ -261,6 +409,14 @@ document.addEventListener('DOMContentLoaded', () => {
         optionsArea.innerHTML = '';
         instructionText.classList.add('hidden');
         nextQuestionBtn.classList.add('hidden');
+        zoomOutBtn.classList.add('hidden');
+    }
+
+    function goBackToMainMenu() {
+        appContainer.classList.remove('map-quiz-mode');
+        quizScreen.classList.add('hidden');
+        resultsScreen.classList.add('hidden');
+        startScreen.classList.remove('hidden');
     }
 
     // --- 이벤트 리스너 설정 ---
@@ -271,14 +427,17 @@ document.addEventListener('DOMContentLoaded', () => {
     nextQuestionBtn.addEventListener('click', nextQuestion);
     
     playAgainSameQuizBtn.addEventListener('click', () => startQuiz(quizType));
-    backToMainBtn.addEventListener('click', () => {
-        resultsScreen.classList.add('hidden');
-        startScreen.classList.remove('hidden');
-    });
+    backToMainBtn.addEventListener('click', goBackToMainMenu);
     backToMainDuringQuizBtn.addEventListener('click', () => {
         if (confirm('정말로 게임을 중단하고 메인 화면으로 돌아가시겠습니까?')) {
-            quizScreen.classList.add('hidden');
-            startScreen.classList.remove('hidden');
+            goBackToMainMenu();
+        }
+    });
+    zoomOutBtn.addEventListener('click', () => {
+        const svg = questionArea.querySelector('#world-map-svg');
+        if (svg) {
+            smoothlySetViewBox(svg, originalViewBox.split(' ').map(Number));
+            zoomOutBtn.classList.add('hidden');
         }
     });
 
