@@ -33,11 +33,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const TOTAL_QUESTIONS = 10;
     let worldMapSVG = null;
 
+    // --- 유틸리티 함수 ---
+    const getCountryName = (country) => country.translations.kor.common || country.name.common;
+
     // --- 데이터 및 SVG 로드 ---
     async function initializeGameData() {
         try {
             const [countriesResponse, mapResponse] = await Promise.all([
-                fetch('https://restcountries.com/v3.1/all?fields=name,capital,flags,cca2,cca3'),
+                fetch('https://restcountries.com/v3.1/all?fields=name,capital,flags,cca2,cca3,translations'),
                 fetch('./map.svg')
             ]);
 
@@ -45,13 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!mapResponse.ok) throw new Error(`지도 데이터 로드 실패: ${mapResponse.status}`);
 
             allCountries = await countriesResponse.json();
-            allCountries = allCountries.filter(country => country.capital && country.capital.length > 0 && country.cca2);
+            allCountries = allCountries.filter(country => country.capital && country.capital.length > 0 && country.cca2 && country.translations.kor);
 
             const mapText = await mapResponse.text();
             const parser = new DOMParser();
             worldMapSVG = parser.parseFromString(mapText, 'image/svg+xml').documentElement;
 
-            // SVG 지도에 있는 국가들만 맵 퀴즈용으로 필터링
             const mapCountryIds = Array.from(worldMapSVG.querySelectorAll('.country')).map(path => path.id);
             mapQuizCountries = allCountries.filter(country => mapCountryIds.includes(country.cca2));
 
@@ -98,20 +100,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const question = currentQuizData[currentQuestionIndex];
         updateProgress();
 
-        // 퀴즈 유형에 따라 화면 구성
         switch (quizType) {
-            case 'flag':
-                displayFlagQuestion(question);
-                break;
-            case 'capital':
-                displayCapitalQuestion(question);
-                break;
-            case 'map-find':
-                displayMapFindQuestion(question);
-                break;
-            case 'map-guess':
-                displayMapGuessQuestion(question);
-                break;
+            case 'flag': displayFlagQuestion(question); break;
+            case 'capital': displayCapitalQuestion(question); break;
+            case 'map-find': displayMapFindQuestion(question); break;
+            case 'map-guess': displayMapGuessQuestion(question); break;
         }
     }
 
@@ -122,12 +115,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayCapitalQuestion(question) {
-        questionArea.innerHTML = `<p id="country-name-question">'${question.name.common}'의 수도는?</p>`;
+        questionArea.innerHTML = `<p id="country-name-question">'${getCountryName(question)}'의 수도는?</p>`;
         generateMultipleChoiceOptions(question, 'capital');
     }
 
     function displayMapFindQuestion(question) {
-        questionArea.innerHTML = `<p id="country-name-question">'${question.name.common}'을(를) 지도에서 찾아보세요.</p>`;
+        questionArea.innerHTML = `<p id="country-name-question">'${getCountryName(question)}'을(를) 지도에서 찾아보세요.</p>`;
         instructionText.textContent = '지도에서 해당하는 국가를 클릭하세요.';
         instructionText.classList.remove('hidden');
         renderMap(handleMapClick, question);
@@ -137,21 +130,21 @@ document.addEventListener('DOMContentLoaded', () => {
         questionArea.innerHTML = '';
         instructionText.textContent = '지도에 표시된 국가는 어디일까요?';
         instructionText.classList.remove('hidden');
-        renderMap(() => {}, question, true); // 지도 클릭 비활성화, 국가 하이라이트
+        renderMap(() => {}, question, true);
         generateMultipleChoiceOptions(question, 'name');
     }
 
     // --- 선택지 및 지도 처리 ---
     function generateMultipleChoiceOptions(correctAnswer, type) {
         let options = [];
-        const correctOption = type === 'name' ? correctAnswer.name.common : correctAnswer.capital[0];
+        const correctOption = type === 'name' ? getCountryName(correctAnswer) : correctAnswer.capital[0];
         options.push(correctOption);
 
         const sourceCountries = quizType.startsWith('map') ? mapQuizCountries : allCountries;
 
         while (options.length < 4) {
             const randomCountry = sourceCountries[Math.floor(Math.random() * sourceCountries.length)];
-            const randomOption = type === 'name' ? randomCountry.name.common : (randomCountry.capital ? randomCountry.capital[0] : null);
+            const randomOption = type === 'name' ? getCountryName(randomCountry) : (randomCountry.capital ? randomCountry.capital[0] : null);
             if (randomOption && !options.includes(randomOption)) {
                 options.push(randomOption);
             }
@@ -184,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 정답 처리 ---
     function handleOptionClick(button, selectedOption, question) {
-        const correctOption = (quizType === 'flag' || quizType === 'map-guess') ? question.name.common : question.capital[0];
+        const correctOption = (quizType === 'flag' || quizType === 'map-guess') ? getCountryName(question) : question.capital[0];
         const isCorrect = selectedOption === correctOption;
         showFeedback(isCorrect, button, correctOption);
     }
@@ -192,11 +185,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleMapClick(event, question) {
         const clickedCountryId = event.target.id;
         const isCorrect = clickedCountryId === question.cca2;
-        showFeedback(isCorrect, event.target, question.cca2);
+        showFeedback(isCorrect, event.target, getCountryName(question));
     }
 
     function showFeedback(isCorrect, clickedElement, correctId) {
-        // 모든 상호작용 비활성화
         optionsArea.querySelectorAll('.option-btn').forEach(btn => btn.classList.add('disabled'));
         questionArea.querySelectorAll('.country').forEach(path => path.style.pointerEvents = 'none');
 
@@ -210,7 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             if (clickedElement.tagName === 'path') {
                 clickedElement.style.fill = 'var(--incorrect-color)';
-                questionArea.querySelector(`#${correctId}`).classList.add('highlight');
+                const correctPath = questionArea.querySelector(`#${currentQuizData[currentQuestionIndex].cca2}`);
+                correctPath.classList.add('highlight');
+                instructionText.textContent = `정답은 ${correctId} 입니다.`;
             } else {
                 clickedElement.classList.add('incorrect');
                 optionsArea.querySelectorAll('.option-btn').forEach(btn => {
