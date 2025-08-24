@@ -82,6 +82,14 @@ main#main-content {
     font-weight: bold;
 }
 
+#back-to-main-during-quiz-btn {
+    background-color: var(--secondary-color);
+    color: white;
+    font-size: 0.9em;
+    padding: 8px 12px;
+    border: none;
+}
+
 #progress-bar {
     width: 100%;
     height: 10px;

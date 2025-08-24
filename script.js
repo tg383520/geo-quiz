@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const optionsArea = document.getElementById('options-area');
     const instructionText = document.getElementById('instruction-text');
     const nextQuestionBtn = document.getElementById('next-question-btn');
+    const backToMainDuringQuizBtn = document.getElementById('back-to-main-during-quiz-btn');
 
     const finalScoreDisplay = document.getElementById('final-score');
     const resultMessageDisplay = document.getElementById('result-message');
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let worldMapSVG = null;
 
     // --- 유틸리티 함수 ---
-    const getCountryName = (country) => country.translations.kor.common || country.name.common;
+    const getCountryName = (country) => (country.translations && country.translations.kor ? country.translations.kor.common : country.name.common) || country.name.common;
 
     // --- 데이터 및 SVG 로드 ---
     async function initializeGameData() {
@@ -54,8 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const parser = new DOMParser();
             worldMapSVG = parser.parseFromString(mapText, 'image/svg+xml').documentElement;
 
-            const mapCountryIds = Array.from(worldMapSVG.querySelectorAll('.country')).map(path => path.id);
-            mapQuizCountries = allCountries.filter(country => mapCountryIds.includes(country.cca2));
+            // [수정] class 대신 id가 있는 모든 path를 국가로 인식
+            const mapCountryIds = Array.from(worldMapSVG.querySelectorAll('path[id]')).map(path => path.id.toLowerCase());
+            // [수정] API의 국가 코드도 소문자로 바꿔서 비교
+            mapQuizCountries = allCountries.filter(country => mapCountryIds.includes(country.cca2.toLowerCase()));
 
             enableQuizButtons();
         } catch (error) {
@@ -86,6 +89,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function prepareQuizData() {
         const sourceCountries = quizType.startsWith('map') ? mapQuizCountries : allCountries;
+        if (sourceCountries.length < TOTAL_QUESTIONS) {
+            alert('지도에 표시된 국가의 수가 적어 퀴즈를 시작할 수 없습니다. (10개 이상 필요)');
+            quizScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            return;
+        }
         sourceCountries.sort(() => 0.5 - Math.random());
         currentQuizData = sourceCountries.slice(0, TOTAL_QUESTIONS);
     }
@@ -167,9 +176,9 @@ document.addEventListener('DOMContentLoaded', () => {
         mapContainer.appendChild(clonedMap);
         questionArea.appendChild(mapContainer);
 
-        clonedMap.querySelectorAll('.country').forEach(path => {
+        clonedMap.querySelectorAll('path[id]').forEach(path => {
             path.addEventListener('click', (e) => clickCallback(e, question));
-            if (highlight && path.id === question.cca2) {
+            if (highlight && path.id.toLowerCase() === question.cca2.toLowerCase()) {
                 path.classList.add('highlight');
             }
         });
@@ -184,13 +193,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleMapClick(event, question) {
         const clickedCountryId = event.target.id;
-        const isCorrect = clickedCountryId === question.cca2;
+        const isCorrect = clickedCountryId.toLowerCase() === question.cca2.toLowerCase();
         showFeedback(isCorrect, event.target, getCountryName(question));
     }
 
     function showFeedback(isCorrect, clickedElement, correctId) {
         optionsArea.querySelectorAll('.option-btn').forEach(btn => btn.classList.add('disabled'));
-        questionArea.querySelectorAll('.country').forEach(path => path.style.pointerEvents = 'none');
+        questionArea.querySelectorAll('path[id]').forEach(path => path.style.pointerEvents = 'none');
 
         if (isCorrect) {
             score++;
@@ -202,8 +211,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             if (clickedElement.tagName === 'path') {
                 clickedElement.style.fill = 'var(--incorrect-color)';
-                const correctPath = questionArea.querySelector(`#${currentQuizData[currentQuestionIndex].cca2}`);
-                correctPath.classList.add('highlight');
+                const correctCountryCode = currentQuizData[currentQuestionIndex].cca2.toLowerCase();
+                const correctPath = questionArea.querySelector(`path[id='${correctCountryCode}']`);
+                if(correctPath) correctPath.classList.add('highlight');
                 instructionText.textContent = `정답은 ${correctId} 입니다.`;
             } else {
                 clickedElement.classList.add('incorrect');
@@ -264,6 +274,12 @@ document.addEventListener('DOMContentLoaded', () => {
     backToMainBtn.addEventListener('click', () => {
         resultsScreen.classList.add('hidden');
         startScreen.classList.remove('hidden');
+    });
+    backToMainDuringQuizBtn.addEventListener('click', () => {
+        if (confirm('정말로 게임을 중단하고 메인 화면으로 돌아가시겠습니까?')) {
+            quizScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        }
     });
 
     // --- 초기화 ---
