@@ -204,10 +204,15 @@ main#main-content {
     cursor: pointer;
 }
 
-#world-map-svg .country.highlight {
-    fill: var(--primary-color) !important; /* 선택된 국가 색상 강조 */
-    stroke: #fff !important;
-    stroke-width: 1px !important;
+#world-map-svg .country.highlight,
+#world-map-svg g.correct path,
+#world-map-svg path.correct {
+    fill: var(--primary-color) !important;
+}
+
+#world-map-svg g.incorrect path,
+#world-map-svg path.incorrect {
+    fill: var(--incorrect-color) !important;
 }
 
 #world-map-svg .pointer-arrow {
