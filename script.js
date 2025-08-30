@@ -23,6 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultMessageDisplay = document.getElementById('result-message');
     const playAgainSameQuizBtn = document.getElementById('play-again-same-quiz-btn');
     const backToMainBtn = document.getElementById('back-to-main-btn');
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const closeSettingsBtn = document.getElementById('close-settings-btn');
+    const majorCountriesToggle = document.getElementById('major-countries-toggle');
+    const questionTypeToggle = document.getElementById('question-type-toggle');
 
     // --- 게임 상태 변수 ---
     let apiCountries = [];
@@ -39,24 +44,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastMousePos = { x: 0, y: 0 };
     let initialPinchDistance = null;
 
+    let settings = {
+        majorCountriesOnly: false,
+        questionType: 'multiple' // 'multiple' or 'subjective'
+    };
+
+    const MAJOR_COUNTRY_CODES = ['AR', 'AU', 'AT', 'BD', 'BE', 'BR', 'BG', 'CA', 'CL', 'CN', 'CO', 'HR', 'CU', 'CZ', 'DK', 'EG', 'ET', 'FI', 'FR', 'DE', 'GH', 'GR', 'HU', 'IS', 'IN', 'ID', 'IR', 'IQ', 'IE', 'IL', 'IT', 'JP', 'KZ', 'KE', 'KP', 'KR', 'KW', 'LT', 'LU', 'MG', 'MY', 'MX', 'MC', 'MN', 'MA', 'NL', 'NZ', 'NO', 'PK', 'PE', 'PH', 'PL', 'PT', 'QA', 'RO', 'RU', 'SA', 'RS', 'SG', 'SK', 'SI', 'ZA', 'ES', 'SE', 'CH', 'TH', 'TR', 'UA', 'AE', 'GB', 'UY', 'VN', 'US', 'NG', 'VE'];
+
     // --- 데이터 예외 처리 ---
     const countryNameOverrides = {
         'KP': '조선민주주의인민공화국',
         'AU': '오스트레일리아',
     };
-    const capitalNameOverrides = {
-        'Washington, D.C.': '워싱턴 D.C.',
-        'Tokyo': '도쿄',
-        'Beijing': '베이징',
-        'London': '런던',
-        'Paris': '파리',
-        'Berlin': '베를린',
-        'Moscow': '모스크바',
-        'Ottawa': '오타와',
-        'Canberra': '캔버라',
-        'Seoul': '서울',
-        'Pyongyang': '평양',
-    };
+    const capitalNameOverrides = {};
     const countryBlacklist = ['gl'];
 
     // --- 유틸리티 함수 ---
@@ -140,9 +140,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function prepareQuizData() {
-        const sourceCountries = quizType.startsWith('map') ? mapQuizCountries : apiCountries;
+        let sourceCountries = quizType.startsWith('map') ? mapQuizCountries : apiCountries;
+
+        if (settings.majorCountriesOnly) {
+            sourceCountries = sourceCountries.filter(country => MAJOR_COUNTRY_CODES.includes(country.cca2));
+        }
+
         if (sourceCountries.length < TOTAL_QUESTIONS) {
-            alert(`퀴즈를 위한 데이터가 부족합니다. (필요: ${TOTAL_QUESTIONS}, 가능: ${sourceCountries.length})`);
+            const message = settings.majorCountriesOnly
+                ? `주요 국가 퀴즈를 위한 데이터가 부족합니다. (필요: ${TOTAL_QUESTIONS}, 가능: ${sourceCountries.length})`
+                : `퀴즈를 위한 데이터가 부족합니다. (필요: ${TOTAL_QUESTIONS}, 가능: ${sourceCountries.length})`;
+            alert(message);
             currentQuizData = null;
             goBackToMainMenu();
             return;
@@ -180,12 +188,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 질문 유형별 표시 함수 ---
     function displayFlagQuestion(question) {
         questionArea.innerHTML = `<img id="flag-image" src="${question.flags.svg}" alt="국기">`;
-        generateMultipleChoiceOptions(question, 'name');
+        if (settings.questionType === 'subjective') {
+            renderSubjectiveInput(question);
+        } else {
+            generateMultipleChoiceOptions(question, 'name');
+        }
     }
 
     function displayCapitalQuestion(question) {
         questionArea.innerHTML = `<p id="country-name-question">'${getCountryName(question)}'의 수도는?</p>`;
-        generateMultipleChoiceOptions(question, 'capital');
+        if (settings.questionType === 'subjective') {
+            instructionText.textContent = "수도는 영어로 입력해주세요.";
+            instructionText.classList.remove('hidden');
+            renderSubjectiveInput(question);
+        } else {
+            generateMultipleChoiceOptions(question, 'capital');
+        }
     }
 
     function displayMapFindQuestion(question) {
@@ -205,10 +223,79 @@ document.addEventListener('DOMContentLoaded', () => {
         const mapEl = renderMap(() => {}, question, { highlight: true, arrow: true });
         questionArea.innerHTML = '';
         questionArea.appendChild(mapEl);
-        generateMultipleChoiceOptions(question, 'name');
+        if (settings.questionType === 'subjective') {
+            renderSubjectiveInput(question);
+        } else {
+            generateMultipleChoiceOptions(question, 'name');
+        }
     }
 
     // --- 선택지 및 지도 처리 ---
+    function renderSubjectiveInput(question) {
+        optionsArea.innerHTML = `
+            <div class="subjective-input-container">
+                <input type="text" id="subjective-answer-input" placeholder="정답을 입력하세요...">
+                <button id="subjective-submit-btn">제출</button>
+            </div>
+        `;
+        document.getElementById('subjective-submit-btn').addEventListener('click', () => handleSubjectiveSubmit(question));
+        const inputEl = document.getElementById('subjective-answer-input');
+        inputEl.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                e.stopPropagation(); // Enter 키 이벤트가 window로 전파되는 것을 막음
+                handleSubjectiveSubmit(question);
+            }
+        });
+        // 입력창이 DOM에 렌더링된 후 포커스를 맞추기 위해 setTimeout 사용
+        setTimeout(() => inputEl.focus(), 0);
+    }
+
+    function handleSubjectiveSubmit(question) {
+        const inputElement = document.getElementById('subjective-answer-input');
+        const userAnswer = inputElement.value.trim().toLowerCase();
+
+        if (!userAnswer) return; // 빈칸 제출 방지
+
+        let isCorrect = false;
+        const country = currentQuizData[currentQuestionIndex];
+        const primaryAnswer = (quizType === 'flag' || quizType === 'map-guess') ? getCountryName(question) : getCapitalName(question);
+
+        const correctAnswers = [];
+
+        if (quizType === 'flag' || quizType === 'map-guess') {
+            // API 제공 이름 추가
+            correctAnswers.push(country.name.common.toLowerCase());
+            correctAnswers.push(country.name.official.toLowerCase());
+            if (country.altSpellings) {
+                country.altSpellings.forEach(alt => correctAnswers.push(alt.toLowerCase()));
+            }
+            // 한국어 이름 추가
+            correctAnswers.push(country.translations.kor.common.toLowerCase());
+            correctAnswers.push(country.translations.kor.official.toLowerCase());
+            
+            // 별칭 수동 추가
+            const manualAliases = {
+                'KR': ['한국', 'south korea'],
+                'KP': ['북한', 'north korea'],
+                'US': ['미국', 'united states of america'],
+                'GB': ['영국', 'uk', 'united kingdom'],
+                'JP': ['일본'],
+                'CN': ['중국']
+            };
+            if (manualAliases[country.cca2]) {
+                manualAliases[country.cca2].forEach(a => correctAnswers.push(a.toLowerCase()));
+            }
+
+            isCorrect = [...new Set(correctAnswers)].includes(userAnswer);
+
+        } else { // 수도 퀴즈
+            const capital = getCapitalName(question).toLowerCase();
+            correctAnswers.push(capital);
+            isCorrect = (userAnswer === capital);
+        }
+
+        showFeedback(isCorrect, inputElement, primaryAnswer);
+    }
     function generateMultipleChoiceOptions(correctAnswer, type) {
         const source = quizType.startsWith('map') ? mapQuizCountries : apiCountries;
         const correctOptionValue = type === 'name' ? getCountryName(correctAnswer) : getCapitalName(correctAnswer);
@@ -342,17 +429,33 @@ document.addEventListener('DOMContentLoaded', () => {
     function zoomAtPoint(delta, clientX, clientY) {
         const svg = questionArea.querySelector('#world-map-svg');
         if (!svg) return;
+
+        const originalWidth = parseFloat(originalViewBox.split(' ')[2]);
+        const maxZoomWidth = originalWidth / 15; // Max zoom-in (smallest width)
+        const minZoomWidth = originalWidth;      // Max zoom-out (largest width)
+
         const point = new DOMPoint(clientX, clientY);
         const transformedPoint = point.matrixTransform(svg.getScreenCTM().inverse());
         const currentViewBox = svg.getAttribute('viewBox').split(' ').map(Number);
         const [x, y, width, height] = currentViewBox;
+        
         const zoomFactor = 1.25;
-        const newWidth = delta < 0 ? width / zoomFactor : width * zoomFactor;
-        const newHeight = delta < 0 ? height / zoomFactor : height * zoomFactor;
+        let newWidth = delta < 0 ? width / zoomFactor : width * zoomFactor;
+
+        // Clamp the new width to the zoom limits
+        if (newWidth < maxZoomWidth) newWidth = maxZoomWidth;
+        if (newWidth > minZoomWidth) newWidth = minZoomWidth;
+        
+        // Prevent further zooming if limits are hit
+        if (newWidth === width) return;
+
+        const newHeight = newWidth * (height / width);
+
         const newX = transformedPoint.x - (transformedPoint.x - x) * (newWidth / width);
         const newY = transformedPoint.y - (transformedPoint.y - y) * (newHeight / height);
+
         svg.setAttribute('viewBox', `${newX} ${newY} ${newWidth} ${newHeight}`);
-        zoomOutBtn.classList.toggle('hidden', newWidth >= originalViewBox.split(' ')[2]);
+        zoomOutBtn.classList.toggle('hidden', newWidth >= originalWidth);
     }
 
     // --- 모바일 터치 핸들러 ---
@@ -384,7 +487,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 event.touches[0].clientX - event.touches[1].clientX,
                 event.touches[0].clientY - event.touches[1].clientY
             );
-            const zoomDelta = initialPinchDistance - newPinchDistance;
+            const zoomSensitivity = 0.8; // Lower is less sensitive
+            const zoomDelta = (initialPinchDistance - newPinchDistance) * zoomSensitivity;
+            
             const midPointX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
             const midPointY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
             
@@ -406,7 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 정답 처리 ---
     function handleOptionClick(button, selectedOption, question) {
         const correctOption = (quizType === 'flag' || quizType === 'map-guess') ? getCountryName(question) : getCapitalName(question);
-        showFeedback(selectedOption === correctOption, button, getCapitalName(question));
+        showFeedback(selectedOption === correctOption, button, correctOption);
     }
 
     function handleMapClick(event, question) {
@@ -418,15 +523,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function showFeedback(isCorrect, clickedElement, correctCountryName) {
+    function showFeedback(isCorrect, answeredElement, correctOptionText) {
         questionArea.querySelectorAll('.country').forEach(el => el.style.pointerEvents = 'none');
         optionsArea.querySelectorAll('.option-btn').forEach(btn => btn.disabled = true);
+        document.getElementById('subjective-submit-btn')?.setAttribute('disabled', 'true');
+        document.getElementById('subjective-answer-input')?.setAttribute('disabled', 'true');
 
         if (isCorrect) {
             score++;
-            clickedElement.classList.add('correct');
+            answeredElement.classList.add('correct');
         } else {
-            clickedElement.classList.add('incorrect');
+            answeredElement.classList.add('incorrect');
+            
+            // 주관식 오답 시 정답 표시
+            if (settings.questionType === 'subjective') {
+                const correctAnswerDisplay = document.createElement('p');
+                correctAnswerDisplay.textContent = `정답: ${correctOptionText}`;
+                correctAnswerDisplay.classList.add('correct-answer-text');
+                optionsArea.appendChild(correctAnswerDisplay);
+            }
+
             const correctSvgId = currentQuizData[currentQuestionIndex].svgId;
             const correctElement = questionArea.querySelector(`#${CSS.escape(correctSvgId)}`);
             if (correctElement) {
@@ -439,8 +555,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.warn("오답 시 정답 화살표 표시에 실패했습니다.", e);
                 }
             }
+            // 객관식 오답 시 정답 버튼 표시
             optionsArea.querySelectorAll('.option-btn').forEach(btn => {
-                if (btn.textContent === correctCountryName) btn.classList.add('correct');
+                if (btn.textContent === correctOptionText) btn.classList.add('correct');
             });
         }
         updateScoreDisplay();
@@ -492,6 +609,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const svg = questionArea.querySelector('#world-map-svg');
         if (svg) svg.setAttribute('viewBox', originalViewBox);
         zoomOutBtn.classList.add('hidden');
+    });
+
+    // 설정 모달
+    settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+    closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+            settingsModal.classList.add('hidden');
+        }
+    });
+
+    majorCountriesToggle.addEventListener('change', (e) => {
+        settings.majorCountriesOnly = e.target.checked;
+    });
+
+    questionTypeToggle.addEventListener('change', (e) => {
+        settings.questionType = e.target.checked ? 'subjective' : 'multiple';
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter' && !nextQuestionBtn.classList.contains('hidden')) {
+            nextQuestionBtn.click();
+        }
     });
 
     // --- 초기화 ---
